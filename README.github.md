@@ -1,6 +1,6 @@
 # mini DBMS
 
-파이썬과 HTTP API로 사용하는 가벼운 mini DBMS
+파이썬과 HTTP API로 사용하는 가벼운 mini DBMS입니다. 데이터 조회에 B+ 트리 인덱스를 사용합니다.
 
 ## 목차
 
