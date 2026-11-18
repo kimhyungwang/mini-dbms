@@ -7,7 +7,9 @@ Python으로 만든 학습용 파일 기반 DBMS입니다. SQL로 데이터를 C
 - macOS 또는 Linux의 로컬 파일시스템
 - Python 3.10 이상 권장. Python 표준 라이브러리만 사용하므로 별도 패키지 설치 없이 실행할 수 있습니다.
 
-저장소를 내려받은 뒤 프로젝트 폴더에서 아래 명령을 실행하세요. 예제는 별도 폴더인 `demo-data/`에 데이터를 저장합니다.
+프로젝트의 `.py` 파일이 있는 폴더에서 실행하세요. 아래 예제는 `demo-data/`에 데이터를 저장합니다.
+
+실행 순서는 **CLI로 예제 데이터 준비 → DB 서버 시작 → API 서버 시작 → 회원 조회**입니다.
 
 ## CLI에서 데이터 저장하고 조회하기
 
@@ -36,17 +38,21 @@ SELECT id, name FROM users WHERE id = 3;
 
 ## HTTP로 회원 조회하기
 
-위 예제 데이터를 저장한 뒤, 프로젝트 폴더에서 **서로 다른 터미널**에 두 서버를 실행하세요.
+위 예제 데이터를 저장한 뒤, 프로젝트 폴더에서 터미널 두 개를 열어 서버를 시작하세요.
+
+**터미널 1에서 DB 서버 시작**
 
 ```bash
-# 터미널 1 (DB 서버)
 python3 db_server.py --data-dir demo-data --workers 4
+```
 
-# 터미널 2 (HTTP API 서버)
+**터미널 2에서 API 서버 시작**
+
+```bash
 python3 api_server.py --workers 4
 ```
 
-브라우저에서 [http://127.0.0.1:8080/users/3](http://127.0.0.1:8080/users/3)을 열거나 아래 명령으로 조회할 수 있습니다.
+두 서버를 실행한 상태에서 브라우저로 [http://127.0.0.1:8080/users/3](http://127.0.0.1:8080/users/3)을 열거나, 세 번째 터미널에서 아래 명령을 실행하세요.
 
 ```bash
 curl http://127.0.0.1:8080/users/3
@@ -98,19 +104,21 @@ curl http://127.0.0.1:8080/users/3
 
 ## 서버 구조
 
-```text
-웹 클라이언트
-  │ HTTP GET /users/3
-  ▼
-API 서버 → TCP로 SQL 전송 → DB 서버 → SQL 파서 → DB 엔진 → CSV / B+ 트리
-  ▲                           │
-  └──────── 조회 결과 ────────┘
-  │ HTTP JSON 응답
-  ▼
-웹 클라이언트
+```mermaid
+sequenceDiagram
+    participant Client as 웹 클라이언트
+    participant API as API 서버 (8080)
+    participant DB as DB 서버 (9000)
+
+    Client->>API: HTTP GET /users/3
+    API->>DB: TCP로 회원 조회 SQL 전송
+    DB->>DB: SQL 파싱 → B+ 트리로 위치 검색 → CSV에서 행 읽기
+    DB-->>API: TCP로 조회 결과 반환
+    API-->>Client: HTTP 200 JSON 응답
 ```
 
-API 서버와 DB 서버는 각자 스레드 풀을 사용합니다. API 워커가 한 요청의 DB 응답을 기다리는 동안 다른 워커는 별도 TCP 연결로 다음 요청을 보낼 수 있습니다. DB 엔진은 준비된 테이블의 조회끼리 공유 락으로 진행하고, 쓰기와 복구에는 배타 락을 사용합니다.
+- **API 서버**는 HTTP 요청을 SQL로 바꾸고, DB 결과를 JSON으로 응답합니다. 한 워커가 DB 응답을 기다리는 동안 다른 워커는 별도 TCP 연결로 요청을 보낼 수 있습니다.
+- **DB 서버**는 SQL을 워커 풀에서 실행합니다. 준비된 테이블의 조회는 공유 락으로 함께 처리하고, 쓰기와 복구는 배타 락을 사용합니다.
 
 TCP 요청과 응답은 `[4바이트 본문 길이, 빅 엔디언][UTF-8 JSON]`으로 전송합니다. 연결 하나에서 요청과 응답 한 쌍을 처리합니다.
 
