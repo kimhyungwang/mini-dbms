@@ -17,39 +17,38 @@
 
 ## 설치 및 실행
 
-실행 순서는 **CLI로 예제 데이터 준비 → DB 서버 시작 → API 서버 시작 → 회원 조회**입니다.
-
 ### 설치
 
 - macOS 또는 Linux의 로컬 파일시스템
-- Python 3.10 이상 권장. Python 표준 라이브러리만 사용하므로 별도 패키지 설치 없이 실행할 수 있습니다.
+- Python 3.10 이상 권장. Python 표준 라이브러리만 사용합니다.
 
 ### CLI에서 데이터 저장하고 조회하기
 
-프로젝트의 `.py` 파일이 있는 폴더에서 실행하세요. 아래 예제는 `demo-data/`에 데이터를 저장합니다.
+1. 프로젝트 폴더에서 CLI를 엽니다. 데이터는 `demo-data/`에 저장됩니다.
 
-```bash
-python3 mini_dbms.py --data-dir demo-data
-```
+   ```bash
+   python3 mini_dbms.py --data-dir demo-data
+   ```
 
-`sql>` 프롬프트에 아래 SQL을 입력하세요. 문장은 여러 줄로 작성할 수 있고, 세미콜론으로 끝냅니다.
+2. `sql>`에 아래 SQL을 입력합니다. 회원 두 명을 저장하고 3번 회원을 조회합니다.
 
-```sql
-CREATE TABLE users (id PRIMARY KEY, name);
+   ```sql
+   CREATE TABLE users (id PRIMARY KEY, name);
+   INSERT INTO users (id, name) VALUES (3, '김철수'), (4, '이영희');
+   SELECT id, name FROM users WHERE id = 3;
+   ```
 
-INSERT INTO users (id, name)
-VALUES (3, '김철수'), (4, '이영희');
+3. 조회 결과를 확인합니다.
 
-SELECT id, name FROM users WHERE id = 3;
-```
+   ```json
+   {"columns": ["id", "name"], "rows": [[3, "김철수"]]}
+   ```
 
-`INSERT 2`는 두 행이 저장됐다는 뜻입니다. 위 `SELECT`의 결과는 다음과 같습니다.
+#### 실행 시 참고
 
-```json
-{"columns": ["id", "name"], "rows": [[3, "김철수"]]}
-```
-
-`Ctrl+D`로 CLI를 종료할 수 있습니다. 같은 예제를 처음부터 다시 실행하려면 다른 데이터 폴더를 지정하세요.
+- SQL 문장은 여러 줄로 입력할 수 있으며 세미콜론(`;`)으로 끝냅니다.
+- CLI를 종료하려면 `Ctrl+D`를 누릅니다.
+- 예제를 다시 실행하려면 `--data-dir`에 새 폴더를 지정합니다.
 
 ### 서버 실행
 
