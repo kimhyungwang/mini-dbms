@@ -1,6 +1,6 @@
 # mini DBMS
 
-CSV 파일에 데이터를 저장하고 B+ 트리 인덱스를 지원하는 Python 기반 학습용 DBMS입니다. CLI에서 SQL을 실행하거나 HTTP API로 회원 정보를 조회할 수 있습니다.
+파이썬과 HTTP API로 사용하는 가벼운 mini DBMS
 
 ## 목차
 
