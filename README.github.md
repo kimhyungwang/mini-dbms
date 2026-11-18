@@ -139,15 +139,6 @@ sequenceDiagram
 
 TCP 요청과 응답은 `[4바이트 본문 길이, 빅 엔디언][UTF-8 JSON]`으로 전송합니다. 연결 하나에서 요청과 응답 한 쌍을 처리합니다.
 
-| 파일 | 역할 |
-| --- | --- |
-| [`mini_dbms.py`](mini_dbms.py) | SQL 실행, CSV 저장, CLI |
-| [`sql_parser.py`](sql_parser.py) | SQL 문자열을 실행에 필요한 객체로 변환 |
-| [`bplus_tree.py`](bplus_tree.py) | B+ 트리 인덱스 |
-| [`storage_recovery.py`](storage_recovery.py) | 파일 락과 저널 복구 |
-| [`api_server.py`](api_server.py) · [`db_server.py`](db_server.py) | HTTP API와 TCP DB 서버 |
-| [`server_transport.py`](server_transport.py) | TCP 메시지 형식과 공용 스레드 풀 |
-
 ## HTTP 조회 성능
 
 기본 설정인 API 스레드 4개와 DB 스레드 4개에서 **3,576 request/s**, **응답 시간 중앙값 4.12ms**를 기록했습니다.
