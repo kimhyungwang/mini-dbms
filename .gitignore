@@ -1,0 +1,4 @@
+__pycache__/
+db/*.jsonl
+db/*.meta.json
+bench_db/

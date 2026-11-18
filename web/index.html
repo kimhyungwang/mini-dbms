@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mini DBMS</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, "Segoe UI", "Malgun Gothic", sans-serif; background: #f4f6fb; color: #222; }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    h1 { margin: 0 0 4px; }
+    .sub { color: #666; margin: 0 0 20px; }
+    .layout { display: grid; grid-template-columns: 300px 1fr; gap: 20px; align-items: start; }
+    .panel { background: #fff; border-radius: 12px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+    h2 { font-size: 16px; margin: 0 0 12px; }
+    .table-card { border: 1px solid #e6e9f0; border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+    .table-card .name { font-weight: 700; font-size: 15px; }
+    .table-card .count { color: #4d96ff; font-size: 13px; margin-left: 6px; }
+    .cols { margin: 8px 0; font-size: 13px; color: #555; line-height: 1.7; }
+    .type { color: #999; font-size: 11px; margin-left: 4px; }
+    .card-btns { display: flex; gap: 6px; }
+    .card-btns button { flex: 1; padding: 6px; font-size: 12px; }
+    textarea { width: 100%; height: 150px; font-family: Consolas, monospace; font-size: 14px; padding: 12px;
+               border: 1px solid #ddd; border-radius: 8px; resize: vertical; line-height: 1.5; }
+    textarea:focus { outline: none; border-color: #4d96ff; }
+    button { border: none; border-radius: 8px; padding: 9px 14px; font-weight: 600; cursor: pointer;
+             background: #eef4ff; color: #4d96ff; }
+    button.run { background: #4d96ff; color: #fff; padding: 9px 22px; }
+    .bar { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+    .pool { margin-bottom: 20px; display: none; }
+    .pool-stats { display: flex; gap: 18px; flex-wrap: wrap; font-size: 14px; margin-bottom: 12px; }
+    .pool-stats b { color: #4d96ff; }
+    .workers { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+    .worker { border: 1px solid #e6e9f0; border-radius: 8px; padding: 8px 10px; font-size: 12px; background: #fafbfc; min-height: 52px; }
+    .worker .wname { font-weight: 700; color: #888; }
+    .worker.busy { border-color: #8ce99a; background: #ebfbee; }
+    .worker.busy .wname { color: #2f9e44; }
+    .worker .winfo { color: #555; font-family: Consolas, monospace; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .served { font-size: 12px; color: #888; margin-top: 10px; }
+    .hint { font-size: 12px; color: #888; }
+    .result { border: 1px solid #e6e9f0; border-radius: 10px; margin-top: 14px; overflow: hidden; }
+    .result .src { background: #f7f8fb; padding: 8px 12px; font-family: Consolas, monospace; font-size: 13px; color: #555;
+                   border-bottom: 1px solid #e6e9f0; white-space: pre-wrap; }
+    .result .msg { padding: 10px 12px; font-size: 14px; }
+    .result.insert .msg { color: #2f9e44; }
+    .result.error { border-color: #ffc9c9; }
+    .result.error .msg { color: #e5484d; }
+    .grid-wrap { max-height: 360px; overflow: auto; }
+    table.grid { border-collapse: collapse; width: 100%; font-size: 14px; }
+    .grid th { position: sticky; top: 0; background: #f0f4ff; text-align: left; padding: 8px 12px; font-size: 13px; color: #333; }
+    .grid td { padding: 7px 12px; border-top: 1px solid #f0f0f0; }
+    .grid td.null { color: #bbb; font-style: italic; }
+    .grid td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .count-line { padding: 8px 12px; font-size: 12px; color: #888; border-top: 1px solid #f0f0f0; display: flex; gap: 12px; flex-wrap: wrap; }
+    .plan { font-weight: 600; }
+    .plan.index { color: #2f9e44; }
+    .plan.scan { color: #e8590c; }
+    .idx-info { font-size: 12px; color: #2f9e44; margin: 6px 0 8px; }
+    .toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #555; cursor: pointer; user-select: none; }
+    .file { margin-top: 14px; }
+    .file pre { background: #1e1e2e; color: #d6deeb; border-radius: 8px; padding: 12px; font-size: 12px;
+                max-height: 300px; overflow: auto; margin: 6px 0 0; line-height: 1.6; }
+    .file .lineno { color: #6b7394; user-select: none; margin-right: 12px; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🗄️ Mini DBMS</h1>
+  <p class="sub">SQL → 파싱 → 실행 → 파일 저장 · id 검색은 B+ 트리 인덱스</p>
+
+  <!-- [Phase 3] 스레드 풀 상태 (api_server.py로 켰을 때만 보임) -->
+  <section class="panel pool" id="pool">
+    <h2>스레드 풀</h2>
+    <div class="pool-stats" id="pool-stats"></div>
+    <div class="workers" id="workers"></div>
+  </section>
+
+  <div class="layout">
+    <!-- 왼쪽: 테이블 목록 -->
+    <section class="panel">
+      <h2>테이블</h2>
+      <div id="tables"></div>
+      <p class="hint">테이블 구조는 db/schema.json 에 정의돼 있어요. id는 자동으로 붙어요.</p>
+    </section>
+
+    <!-- 오른쪽: SQL 입력 + 결과 -->
+    <section class="panel">
+      <h2>SQL</h2>
+      <textarea id="sql" spellcheck="false">INSERT INTO users VALUES ('철수', 20, 'chulsoo@mail.com');
+INSERT INTO users (name, age) VALUES ('영희', 22), ('민수', 17);
+SELECT * FROM users LIMIT 100;</textarea>
+      <div class="bar">
+        <button class="run" onclick="run()">실행</button>
+        <label class="toggle"><input type="checkbox" id="use-index" checked> 인덱스 사용</label>
+        <span class="hint">Ctrl + Enter 로도 실행</span>
+        <span style="flex:1"></span>
+        <button onclick="example('insert')">INSERT 예시</button>
+        <button onclick="example('select')">SELECT 예시</button>
+        <button onclick="example('index')">인덱스 예시</button>
+        <button onclick="example('error')">오류 예시</button>
+      </div>
+      <div id="results"></div>
+      <div id="file"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  const EXAMPLES = {
+    insert: "INSERT INTO users VALUES ('지수', 25, 'jisoo@mail.com');\nINSERT INTO products VALUES ('키보드', 50000), ('마우스', 30000);",
+    select: "SELECT * FROM users WHERE id = 1;\nSELECT name, age FROM users WHERE age >= 20 AND name != '철수';\nSELECT * FROM products WHERE price < 40000 LIMIT 5;",
+    index: "SELECT * FROM users WHERE id = 2;\nSELECT * FROM users WHERE id >= 2 AND id <= 3;\nSELECT * FROM users WHERE name = '영희';",
+    error: "SELECT * FROM nope;\nINSERT INTO users VALUES ('나이가 글자', 'twenty', 'x@mail.com');\nSELEC * FROM users;\nSELECT * FROM users LIMIT 1;",
+  };
+  function example(kind) { $("sql").value = EXAMPLES[kind]; $("sql").focus(); }
+
+  // SQL 실행 → 결과 그리기
+  async function run(sql) {
+    sql = sql ?? $("sql").value;
+    if (!sql.trim()) return;
+    const res = await fetch("/query", { method: "POST", headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ sql, use_index: $("use-index").checked }) });
+    const data = await res.json();
+    $("file").innerHTML = "";
+    const served = data.worker ? `<div class="served">처리한 워커: <b>${esc(data.worker)}</b> · 큐에서 기다린 시간 ${data.queue_wait_ms}ms</div>` : "";
+    $("results").innerHTML = served + (data.error
+      ? `<div class="result error"><div class="msg">${esc(data.error)}</div></div>`
+      : data.results.map(drawResult).join("") || `<div class="result"><div class="msg">실행할 문장이 없어요</div></div>`);
+    loadTables();
+  }
+
+  function drawResult(r) {
+    const src = `<div class="src">${esc(r.source)}</div>`;
+    if (r.kind !== "select") {
+      return `<div class="result ${r.kind}">${src}<div class="msg">${r.kind === "error" ? "✗ " : "✓ "}${esc(r.message)}</div></div>`;
+    }
+    const head = r.columns.map((c) => `<th>${esc(c)}</th>`).join("");
+    const body = r.rows.map((row) => "<tr>" + row.map((v) =>
+      v === null ? `<td class="null">NULL</td>`
+                 : `<td class="${typeof v === "number" ? "num" : ""}">${esc(v)}</td>`).join("") + "</tr>").join("");
+    const isIndex = r.plan.startsWith("B+");
+    return `<div class="result">${src}<div class="grid-wrap"><table class="grid"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>
+            <div class="count-line"><span>${r.total_rows.toLocaleString()}개 행${r.total_rows > r.rows.length
+                ? ` <b style="color:#e8590c">(화면에는 앞 ${r.rows.length.toLocaleString()}개만 표시 · LIMIT을 쓰면 더 빨라요)</b>` : ""}</span>
+              <span class="plan ${isIndex ? "index" : "scan"}">${isIndex ? "⚡" : "🐢"} ${esc(r.plan)}</span>
+              <span>읽은 행 ${r.examined.toLocaleString()}개</span><span>${r.elapsed_ms.toLocaleString()}ms</span></div></div>`;
+  }
+
+  // 왼쪽 테이블 목록
+  async function loadTables() {
+    const data = await (await fetch("/tables")).json();
+    $("tables").innerHTML = data.tables.map((t) => `
+      <div class="table-card">
+        <span class="name">${esc(t.name)}</span><span class="count">${t.rows.toLocaleString()}개 행</span>
+        <div class="idx-info">B+ 트리 · 높이 ${t.index.height} · 잎 ${t.index.leaves.toLocaleString()}개</div>
+        <div class="cols">${t.columns.map((c) => `${esc(c.name)}<span class="type">${c.type}</span>`).join("<br>")}</div>
+        <div class="card-btns">
+          <button onclick="showRows('${esc(t.name)}')">데이터 보기</button>
+          <button onclick="showFile('${esc(t.name)}')">파일 보기</button>
+        </div>
+      </div>`).join("");
+  }
+
+  function showRows(name) {
+    const sql = `SELECT * FROM ${name} LIMIT 100;`;
+    $("sql").value = sql;
+    run(sql);
+  }
+
+  // 테이블 파일 내용 그대로 보여주기 (저장 형식 확인용)
+  async function showFile(name) {
+    const data = await (await fetch("/file?table=" + encodeURIComponent(name))).json();
+    const lines = data.lines.length
+      ? data.lines.map((l, i) => `<span class="lineno">${i + 1}</span>${esc(l)}`).join("\n")
+      : "(아직 비어 있어요)";
+    const more = data.total > data.lines.length ? `<div class="hint">… 전체 ${data.total.toLocaleString()}행 중 앞 ${data.lines.length}줄</div>` : "";
+    $("file").innerHTML = `<div class="file"><h2>db/${esc(data.file)}</h2>
+      <div class="hint">한 줄 = 행 하나 = [id, 컬럼1, 컬럼2, …] · 다음 id: ${data.next_id} (db/${esc(data.meta)})</div>
+      <pre>${lines}</pre>${more}</div>`;
+    $("file").scrollIntoView({ behavior: "smooth" });
+  }
+
+  $("sql").addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); run(); }
+  });
+
+  // [Phase 3] 스레드 풀 상태 (0.5초마다). /stats가 없는 서버(web.py)면 패널을 숨김
+  async function loadPool() {
+    try {
+      const res = await fetch("/stats");
+      if (!res.ok) return;
+      const s = await res.json();
+      $("pool").style.display = "block";
+      $("pool-stats").innerHTML =
+        `<span>워커 <b>${s.max_workers}</b>개</span><span>처리 중 <b>${s.busy}</b></span>` +
+        `<span>큐 대기 <b>${s.queued}</b> / ${s.queue_size}</span><span>완료 <b>${s.completed.toLocaleString()}</b></span>` +
+        `<span>거절(503) <b>${s.rejected}</b></span>`;
+      $("workers").innerHTML = s.workers.map((w) => `
+        <div class="worker ${w.busy ? "busy" : ""}" title="${esc(w.info)}">
+          <div class="wname">${esc(w.name)} ${w.busy ? "· " + w.busy_ms + "ms" : "· 쉬는 중"}</div>
+          <div class="winfo">${w.busy ? esc(w.info) : ""}</div>
+        </div>`).join("");
+      setTimeout(loadPool, 500);
+    } catch (e) { /* 서버가 꺼졌으면 조용히 멈춤 */ }
+  }
+
+  loadTables();
+  loadPool();
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "users": {
+    "name": "TEXT",
+    "age": "INT",
+    "email": "TEXT"
+  },
+  "products": {
+    "name": "TEXT",
+    "price": "INT"
+  }
+}
