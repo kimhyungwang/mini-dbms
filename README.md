@@ -159,4 +159,4 @@ DB 서버와 CLI는 같은 데이터 폴더의 `.mini_dbms.lock` 파일로 읽�
 
 ## 현재 범위
 
-조회 조건은 단일 `=` 비교를 지원합니다. `UPDATE`, `DELETE`, `JOIN`, 서브쿼리와 여러 SQL 문을 묶는 트랜잭션은 현재 지원 범위 밖입니다. HTTP API는 `GET /users/{id}` 조회를 제공합니다.
+조회 조건은 단일 `=` 비교를 지원합니다. `UPDATE`, `DELETE`, `JOIN`, 서브쿼리, 복구 기록, 여러 SQL 문을 묶는 트랜잭션은 현재 지원 범위 밖입니다. HTTP API는 `GET /users/{id}` 조회를 제공합니다.
